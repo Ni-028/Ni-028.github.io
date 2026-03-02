@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>今日はなにを作る？</title>
-  <link rel="stylesheet" href="レシピ.css">
+  <link rel="stylesheet" href="recipe.css">
 </head>
 <body>
   <div class="container">
@@ -14,30 +14,6 @@
     </header>
 
     <main>
-      <section class="api-section">
-        <button id="apiToggle" class="api-toggle">
-          <span>⚙️ 楽天レシピAPI設定</span>
-          <span id="apiStatusBadge" class="api-badge disconnected">未接続</span>
-        </button>
-        <div id="apiPanel" class="api-panel hidden">
-          <p class="api-description">
-            楽天レシピAPIを使うと、写真付きの人気レシピも一緒に検索できます。
-          </p>
-          <p class="api-hint">
-            <a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener noreferrer">
-              楽天ウェブサービス
-            </a>
-            でアプリIDを無料で取得してください。
-          </p>
-          <div class="api-input-wrapper">
-            <input type="text" id="apiKeyInput" placeholder="アプリID を入力">
-            <button id="apiSaveBtn" class="btn-api-save">保存</button>
-            <button id="apiClearBtn" class="btn-api-clear hidden">削除</button>
-          </div>
-          <p id="apiStatus" class="api-status"></p>
-        </div>
-      </section>
-
       <section class="input-section">
         <div class="input-wrapper">
           <input
@@ -56,11 +32,6 @@
         </button>
       </section>
 
-      <div id="apiLoading" class="api-loading hidden">
-        <div class="spinner"></div>
-        <p>楽天レシピを検索中...</p>
-      </div>
-
       <section id="resultSection" class="result-section hidden">
         <div class="recipe-card">
           <h2 id="recipeName" class="recipe-name"></h2>
@@ -76,23 +47,13 @@
             <h3>👨‍🍳 作り方</h3>
             <ol id="recipeSteps" class="steps-list"></ol>
           </div>
-          <div class="external-links">
-            <h3>🌐 外部サイトで詳しく見る</h3>
-            <div id="externalLinks" class="external-links-grid"></div>
-          </div>
         </div>
         <button id="retryBtn" class="btn-retry">🔄 別のレシピを探す</button>
       </section>
 
-      <section id="apiResultSection" class="api-result-section hidden">
-        <h2 class="api-result-title">🌐 楽天レシピからのおすすめ</h2>
-        <div id="apiResults" class="api-results-grid"></div>
-      </section>
-
       <section id="noResultSection" class="no-result-section hidden">
         <p class="no-result-text">😢 その食材に合うレシピが見つかりませんでした。</p>
-        <p class="no-result-hint">外部サイトで探してみましょう！</p>
-        <div id="noResultExternalLinks" class="external-links-grid no-result-links"></div>
+        <p class="no-result-hint">別の食材を試してみてください！</p>
       </section>
     </main>
 
@@ -101,6 +62,7 @@
     </footer>
   </div>
 
-  <script src="レシピ.js"></script>
+  <script src="recipe.js"></script>
 </body>
 </html>
+
