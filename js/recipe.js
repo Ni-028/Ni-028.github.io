@@ -293,78 +293,17 @@ const recipes = [
   }
 ];
 
-// ── 外部料理サイト定義 ──
-const externalSites = [
-  {
-    name: "クックパッド",
-    icon: "📗",
-    buildUrl: function (query) {
-      return "https://cookpad.com/search/" + encodeURIComponent(query);
-    }
-  },
-  {
-    name: "クラシル",
-    icon: "🎬",
-    buildUrl: function (query) {
-      return "https://www.kurashiru.com/search?query=" + encodeURIComponent(query);
-    }
-  },
-  {
-    name: "楽天レシピ",
-    icon: "🍲",
-    buildUrl: function (query) {
-      return "https://recipe.rakuten.co.jp/search/" + encodeURIComponent(query);
-    }
-  },
-  {
-    name: "デリッシュキッチン",
-    icon: "🍴",
-    buildUrl: function (query) {
-      return "https://delishkitchen.tv/search?q=" + encodeURIComponent(query);
-    }
-  },
-  {
-    name: "白ごはん.com",
-    icon: "🍚",
-    buildUrl: function (query) {
-      return "https://www.sirogohan.com/?s=" + encodeURIComponent(query);
-    }
-  }
-];
-
-// ── 楽天レシピAPI設定 ──
-var RAKUTEN_API_BASE = "https://app.rakuten.co.jp/services/api/Recipe";
-var RAKUTEN_API_VER = "20170426";
-var API_STORAGE_KEY = "rakutenRecipeApiKey";
-var cachedCategories = null;
-
-// 幅広いカテゴリからレシピを取得するための大カテゴリID
-var LARGE_CATEGORY_IDS = [
-  "10", "11", "12", "13", "14",
-  "15", "16", "17", "18", "30",
-  "31", "32", "33", "34"
-];
-
 // ── アプリの状態 ──
-var selectedIngredients = [];
+let selectedIngredients = [];
 
 // ── DOM要素 ──
-var ingredientInput = document.getElementById("ingredientInput");
-var addBtn = document.getElementById("addBtn");
-var ingredientTags = document.getElementById("ingredientTags");
-var searchBtn = document.getElementById("searchBtn");
-var resultSection = document.getElementById("resultSection");
-var noResultSection = document.getElementById("noResultSection");
-var retryBtn = document.getElementById("retryBtn");
-var apiToggle = document.getElementById("apiToggle");
-var apiPanel = document.getElementById("apiPanel");
-var apiKeyInput = document.getElementById("apiKeyInput");
-var apiSaveBtn = document.getElementById("apiSaveBtn");
-var apiClearBtn = document.getElementById("apiClearBtn");
-var apiStatusBadge = document.getElementById("apiStatusBadge");
-var apiStatus = document.getElementById("apiStatus");
-var apiLoading = document.getElementById("apiLoading");
-var apiResultSection = document.getElementById("apiResultSection");
+const ingredientInput = document.getElementById("ingredientInput");
+const addBtn = document.getElementById("addBtn");
+const ingredientTags = document.getElementById("ingredientTags");
+const searchBtn = document.getElementById("searchBtn");
+const resultSection = document.getElementById("resultSection");
+const noResultSection = document.getElementById("noResultSection");
+const retryBtn = document.getElementById("retryBtn");
 
 // ── イベント登録 ──
 addBtn.addEventListener("click", addIngredient);
@@ -376,263 +315,11 @@ ingredientInput.addEventListener("keydown", function (e) {
 searchBtn.addEventListener("click", searchRecipe);
 retryBtn.addEventListener("click", searchRecipe);
 
-apiToggle.addEventListener("click", function () {
-  apiPanel.classList.toggle("hidden");
-});
-apiSaveBtn.addEventListener("click", saveApiKey);
-apiClearBtn.addEventListener("click", clearApiKey);
-
-// ── 初期化 ──
-updateApiUI();
-
-// ── APIキー管理 ──
-function getApiKey() {
-  return localStorage.getItem(API_STORAGE_KEY) || "";
-}
-
-function saveApiKey() {
-  var key = apiKeyInput.value.trim();
-  if (!key) return;
-  localStorage.setItem(API_STORAGE_KEY, key);
-  apiKeyInput.value = "";
-  updateApiUI();
-  testApiConnection(key);
-}
-
-function clearApiKey() {
-  localStorage.removeItem(API_STORAGE_KEY);
-  cachedCategories = null;
-  updateApiUI();
-  apiStatus.textContent = "APIキーを削除しました。";
-  apiStatus.className = "api-status";
-}
-
-function updateApiUI() {
-  var key = getApiKey();
-  if (key) {
-    apiStatusBadge.textContent = "接続済み";
-    apiStatusBadge.className = "api-badge connected";
-    apiClearBtn.classList.remove("hidden");
-    apiKeyInput.placeholder = "設定済み（変更する場合は入力）";
-  } else {
-    apiStatusBadge.textContent = "未接続";
-    apiStatusBadge.className = "api-badge disconnected";
-    apiClearBtn.classList.add("hidden");
-    apiKeyInput.placeholder = "アプリID を入力";
-  }
-}
-
-function testApiConnection(key) {
-  apiStatus.textContent = "接続テスト中...";
-  apiStatus.className = "api-status";
-
-  var url = RAKUTEN_API_BASE + "/CategoryList/" + RAKUTEN_API_VER +
-    "?format=json&applicationId=" + encodeURIComponent(key);
-
-  fetch(url)
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      return res.json();
-    })
-    .then(function (data) {
-      if (data.result) {
-        cachedCategories = data.result;
-        apiStatus.textContent = "✅ 接続成功！楽天レシピAPIが使えます。";
-        apiStatus.className = "api-status success";
-      } else {
-        throw new Error("Invalid response");
-      }
-    })
-    .catch(function (err) {
-      apiStatus.textContent = "❌ 接続失敗：APIキーを確認してください。";
-      apiStatus.className = "api-status error";
-      localStorage.removeItem(API_STORAGE_KEY);
-      updateApiUI();
-    });
-}
-
-// ── 楽天レシピAPIからカテゴリ一覧を取得 ──
-function fetchCategories(apiKey) {
-  if (cachedCategories) {
-    return Promise.resolve(cachedCategories);
-  }
-
-  var url = RAKUTEN_API_BASE + "/CategoryList/" + RAKUTEN_API_VER +
-    "?format=json&applicationId=" + encodeURIComponent(apiKey);
-
-  return fetch(url)
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      cachedCategories = data.result || {};
-      return cachedCategories;
-    });
-}
-
-// ── 楽天レシピAPIからランキングを取得 ──
-function fetchRanking(apiKey, categoryId) {
-  var url = RAKUTEN_API_BASE + "/CategoryRanking/" + RAKUTEN_API_VER +
-    "?format=json&applicationId=" + encodeURIComponent(apiKey);
-
-  if (categoryId) {
-    url += "&categoryId=" + encodeURIComponent(categoryId);
-  }
-
-  return fetch(url)
-    .then(function (res) {
-      if (!res.ok) return [];
-      return res.json();
-    })
-    .then(function (data) {
-      return data.result || [];
-    })
-    .catch(function () {
-      return [];
-    });
-}
-
-// ── 食材に関連するカテゴリを選ぶ ──
-function pickCategoriesToSearch(categories, ingredients) {
-  var picked = [];
-
-  // 中カテゴリから食材名に一致するものを探す
-  var medium = categories.medium || [];
-  medium.forEach(function (cat) {
-    ingredients.forEach(function (ing) {
-      if (cat.categoryName.indexOf(ing) !== -1 || ing.indexOf(cat.categoryName) !== -1) {
-        picked.push(cat.parentCategoryId + "-" + cat.categoryId);
-      }
-    });
-  });
-
-  // 大カテゴリからも一部追加（幅広く検索するため）
-  var shuffled = LARGE_CATEGORY_IDS.slice().sort(function () { return Math.random() - 0.5; });
-  var largePicks = shuffled.slice(0, 4);
-  largePicks.forEach(function (id) {
-    if (picked.indexOf(id) === -1) {
-      picked.push(id);
-    }
-  });
-
-  return picked.slice(0, 6);
-}
-
-// ── 楽天レシピAPIで検索 ──
-function searchRakutenRecipes(ingredients) {
-  var apiKey = getApiKey();
-  if (!apiKey) return Promise.resolve([]);
-
-  return fetchCategories(apiKey)
-    .then(function (categories) {
-      var categoryIds = pickCategoriesToSearch(categories, ingredients);
-
-      // 全体ランキング + カテゴリ別ランキングを並列取得
-      var fetches = [fetchRanking(apiKey, "")];
-      categoryIds.forEach(function (catId) {
-        fetches.push(fetchRanking(apiKey, catId));
-      });
-
-      return Promise.all(fetches);
-    })
-    .then(function (results) {
-      var allRecipes = [];
-      results.forEach(function (arr) {
-        allRecipes = allRecipes.concat(arr);
-      });
-
-      // 重複を除去
-      var seen = {};
-      var unique = allRecipes.filter(function (r) {
-        if (!r.recipeTitle || seen[r.recipeTitle]) return false;
-        seen[r.recipeTitle] = true;
-        return true;
-      });
-
-      // 食材でフィルタリング
-      return unique.filter(function (recipe) {
-        var materials = recipe.recipeMaterial || [];
-        return ingredients.some(function (ingredient) {
-          return materials.some(function (m) {
-            return m.indexOf(ingredient) !== -1 || ingredient.indexOf(m) !== -1;
-          });
-        });
-      });
-    })
-    .catch(function (err) {
-      console.error("楽天レシピAPI検索エラー:", err);
-      return [];
-    });
-}
-
-// ── APIレシピを画面に表示する ──
-function displayApiRecipes(apiRecipes) {
-  var container = document.getElementById("apiResults");
-  container.innerHTML = "";
-
-  if (apiRecipes.length === 0) {
-    apiResultSection.classList.add("hidden");
-    return;
-  }
-
-  apiRecipes.forEach(function (recipe) {
-    var card = document.createElement("a");
-    card.href = recipe.recipeUrl;
-    card.target = "_blank";
-    card.rel = "noopener noreferrer";
-    card.className = "api-recipe-card";
-
-    var img = document.createElement("div");
-    img.className = "api-recipe-img";
-    img.style.backgroundImage = 'url("' + recipe.foodImageUrl + '")';
-
-    var info = document.createElement("div");
-    info.className = "api-recipe-info";
-
-    var title = document.createElement("h3");
-    title.className = "api-recipe-title";
-    title.textContent = recipe.recipeTitle;
-
-    var meta = document.createElement("div");
-    meta.className = "api-recipe-meta";
-    var metaParts = [];
-    if (recipe.recipeIndication) metaParts.push("⏱️ " + recipe.recipeIndication);
-    if (recipe.recipeCost) metaParts.push("💰 " + recipe.recipeCost);
-    meta.textContent = metaParts.join("　");
-
-    var desc = document.createElement("p");
-    desc.className = "api-recipe-desc";
-    desc.textContent = recipe.recipeDescription || "";
-
-    var materials = document.createElement("p");
-    materials.className = "api-recipe-materials";
-    var materialList = (recipe.recipeMaterial || []).slice(0, 6);
-    materials.textContent = materialList.join("、");
-    if ((recipe.recipeMaterial || []).length > 6) {
-      materials.textContent += " ...";
-    }
-
-    var badge = document.createElement("span");
-    badge.className = "api-recipe-badge";
-    badge.textContent = "楽天レシピで見る →";
-
-    info.appendChild(title);
-    info.appendChild(meta);
-    info.appendChild(desc);
-    info.appendChild(materials);
-    info.appendChild(badge);
-
-    card.appendChild(img);
-    card.appendChild(info);
-    container.appendChild(card);
-  });
-
-  apiResultSection.classList.remove("hidden");
-}
-
 // ── 食材を追加する ──
 function addIngredient() {
-  var value = ingredientInput.value.trim();
+  const value = ingredientInput.value.trim();
   if (!value) return;
-  if (selectedIngredients.indexOf(value) !== -1) {
+  if (selectedIngredients.includes(value)) {
     ingredientInput.value = "";
     return;
   }
@@ -648,11 +335,11 @@ function addIngredient() {
 function renderTags() {
   ingredientTags.innerHTML = "";
   selectedIngredients.forEach(function (ingredient, index) {
-    var tag = document.createElement("span");
+    const tag = document.createElement("span");
     tag.className = "tag";
     tag.textContent = ingredient;
 
-    var removeBtn = document.createElement("button");
+    const removeBtn = document.createElement("button");
     removeBtn.className = "tag-remove";
     removeBtn.textContent = "✕";
     removeBtn.addEventListener("click", function () {
@@ -673,54 +360,25 @@ function updateSearchButton() {
 
 // ── レシピを検索する ──
 function searchRecipe() {
-  // ローカル検索
-  var matched = recipes.filter(function (recipe) {
+  const matched = recipes.filter(function (recipe) {
     return selectedIngredients.some(function (ingredient) {
       return recipe.ingredients.some(function (ri) {
-        return ri.indexOf(ingredient) !== -1 || ingredient.indexOf(ri) !== -1;
+        return ri.includes(ingredient) || ingredient.includes(ri);
       });
     });
   });
 
   resultSection.classList.add("hidden");
   noResultSection.classList.add("hidden");
-  apiResultSection.classList.add("hidden");
 
-  var localFound = false;
-  if (matched.length > 0) {
-    var randomIndex = Math.floor(Math.random() * matched.length);
-    var recipe = matched[randomIndex];
-    displayRecipe(recipe);
-    localFound = true;
+  if (matched.length === 0) {
+    noResultSection.classList.remove("hidden");
+    return;
   }
 
-  // 楽天レシピAPI検索
-  var apiKey = getApiKey();
-  if (apiKey) {
-    apiLoading.classList.remove("hidden");
-    searchBtn.disabled = true;
-
-    searchRakutenRecipes(selectedIngredients)
-      .then(function (apiRecipes) {
-        displayApiRecipes(apiRecipes);
-
-        if (!localFound && apiRecipes.length === 0) {
-          var ingredientQuery = selectedIngredients.join(" ");
-          renderExternalLinks("noResultExternalLinks", ingredientQuery);
-          noResultSection.classList.remove("hidden");
-        }
-      })
-      .finally(function () {
-        apiLoading.classList.add("hidden");
-        updateSearchButton();
-      });
-  } else {
-    if (!localFound) {
-      var ingredientQuery = selectedIngredients.join(" ");
-      renderExternalLinks("noResultExternalLinks", ingredientQuery);
-      noResultSection.classList.remove("hidden");
-    }
-  }
+  const randomIndex = Math.floor(Math.random() * matched.length);
+  const recipe = matched[randomIndex];
+  displayRecipe(recipe);
 }
 
 // ── レシピを画面に表示する ──
@@ -729,41 +387,22 @@ function displayRecipe(recipe) {
   document.getElementById("recipeTime").textContent = "⏱️ " + recipe.time;
   document.getElementById("recipeServings").textContent = "🍽️ " + recipe.servings;
 
-  var ingredientsList = document.getElementById("recipeIngredients");
+  const ingredientsList = document.getElementById("recipeIngredients");
   ingredientsList.innerHTML = "";
   recipe.ingredients.forEach(function (item) {
-    var li = document.createElement("li");
+    const li = document.createElement("li");
     li.textContent = item;
     ingredientsList.appendChild(li);
   });
 
-  var stepsList = document.getElementById("recipeSteps");
+  const stepsList = document.getElementById("recipeSteps");
   stepsList.innerHTML = "";
   recipe.steps.forEach(function (step) {
-    var li = document.createElement("li");
+    const li = document.createElement("li");
     li.textContent = step;
     stepsList.appendChild(li);
   });
 
-  renderExternalLinks("externalLinks", recipe.name);
-
   resultSection.classList.remove("hidden");
   resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// ── 外部サイトリンクを表示する ──
-function renderExternalLinks(containerId, query) {
-  var container = document.getElementById(containerId);
-  container.innerHTML = "";
-  externalSites.forEach(function (site) {
-    var link = document.createElement("a");
-    link.href = site.buildUrl(query);
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.className = "external-link";
-    link.innerHTML = '<span class="external-link-icon">' + site.icon + '</span>' +
-      '<span class="external-link-name">' + site.name + '</span>' +
-      '<span class="external-link-query">\u300C' + query + '\u300D\u3067\u691C\u7D22</span>';
-    container.appendChild(link);
-  });
 }
